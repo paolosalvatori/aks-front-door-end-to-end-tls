@@ -63,8 +63,6 @@ A [Deployment Script](https://learn.microsoft.com/en-us/azure/azure-resource-man
 
 The [Origin](https://learn.microsoft.com/en-us/azure/frontdoor/origin?pivots=front-door-standard-premium) child resource of the [Azure Front Door Premium](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) global load balancer is configured to call the sample application using the HTTP forwarding protocol via the [Azure Private Link Service](https://learn.microsoft.com/en-us/azure/private-link/private-link-service-overview), the AKS the `kubernetes-internal` internal load balancer, and the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/).  
 
-![Message Flow](images/flow.png)
-
 Bicep modules are parametric, so you can choose any network plugin:
 
 - [Azure CNI with static IP allocation](https://learn.microsoft.com/en-us/azure/aks/configure-azure-cni)
