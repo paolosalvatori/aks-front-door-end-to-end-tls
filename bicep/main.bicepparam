@@ -15,6 +15,7 @@ param aksClusterOutboundType = 'userAssignedNATGateway'
 param aksClusterKubernetesVersion = '1.24.0'
 param aksClusterAdminUsername = 'azadmin'
 param aksClusterSshPublicKey = '<your-ssh-public-key>'
+param loadBalancerBackendPoolType = 'nodeIPConfiguration'
 param aadProfileManaged = true
 param aadProfileEnableAzureRBAC = true
 param aadProfileAdminGroupObjectIDs = [

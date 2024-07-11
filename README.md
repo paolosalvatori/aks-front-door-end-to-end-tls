@@ -156,6 +156,15 @@ The Bicep modules deploy or use the following Azure resources:
   - [Prometheus](https://prometheus.io/)
 
 > **NOTE**  
+> AKS nodes can be referenced in the load balancer backend pools by either their IP configuration (Azure Virtual Machine Scale Sets based membership) or by their IP address only. Utilizing the IP address based backend pool membership provides higher efficiencies when updating services and provisioning load balancers, especially at high node counts. Provisioning new clusters with IP based backend pools and converting existing clusters is now supported. When combined with NAT Gateway or user-defined routing egress types, provisioning of new nodes and services are more performant. Two different pool [membership types](https://learn.microsoft.com/en-us/azure/aks/load-balancer-standard#change-the-inbound-pool-type) are available:
+>
+>- `nodeIPConfiguration`: legacy Virtual Machine Scale Sets IP configuration based pool membership type
+>- `nodeIP`: IP-based membership type
+>
+> Azure Private Link Service does not support Azure Load balancers configured to use with backend addresses set by (virtualNetwork, ipAddress) or (subnet, ipAddress). Hence, `nodeIP` backend pool type is not currently supported if you want to create Azure Private Link Service based on an AKS load balancer. For this reason, this project adopts the `nodeIPConfiguration` membership type for the backend pools.
+
+
+> **NOTE**  
 > At the end of the deployment, the `deploy.sh` performs additional steps to approve the Azure Private Link Service connection from Azure Front Door. For more information, see [Secure your Origin with Private Link in Azure Front Door Premium](https://learn.microsoft.com/en-us/azure/frontdoor/private-link). If you don't use the `deploy.sh` script to deploy the Bicep modules, you must approve the private endpoint connection before traffic can pass to the origin privately. You can approve private endpoint connections by using the Azure portal, Azure CLI, or Azure PowerShell. For more information, see [Manage a Private Endpoint connection](https://learn.microsoft.com/en-us/azure/private-link/manage-private-endpoint).
 
 > **NOTE**  
