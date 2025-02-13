@@ -31,7 +31,10 @@ azureDeploy: "https://raw.githubusercontent.com/Azure-Samples/aks-front-door-end
 
 # End-to-end TLS with AKS, Azure Front Door, Azure Private Link Service, and NGINX Ingress Controller
 
-To ensure your security and compliance requirements are met, [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) offers comprehensive end-to-end TLS encryption. For more information, see [End-to-end TLS with Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/end-to-end-tls?pivots=front-door-standard-premium) support. With Front Door's TLS/SSL offload capability, the TLS connection is terminated and the incoming traffic is decrypted at the Front Door. The traffic is then re-encrypted before being forwarded to the origin, that in this project is represented by a web application hosted in an [Azure Kubernetes Service](https://docs.microsoft.com/en-us/azure/aks/intro-kubernetes) cluster. The sample application is exposed via the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/) configured to use a private IP address as a frontend IP configuration of the `kubernetes-internal` internal load balancer. For more information, see [Create an ingress controller using an internal IP address](https://learn.microsoft.com/en-us/azure/aks/ingress-basic?tabs=azure-cli#create-an-ingress-controller-using-an-internal-ip-address).
+To ensure your security and compliance requirements are met, [Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) offers comprehensive end-to-end TLS encryption. For more information, see [End-to-end TLS with Azure Front Door](https://learn.microsoft.com/en-us/azure/frontdoor/end-to-end-tls?pivots=front-door-standard-premium) support. With Front Door's TLS/SSL offload capability, the TLS connection is terminated and the incoming traffic is decrypted at the Front Door. The traffic is then re-encrypted before being forwarded to the origin, that in this project is represented by a web application hosted in an [Azure Kubernetes Service](https://docs.microsoft.com/en-us/azure/aks/intro-kubernetes) cluster. The sample application is exposed via a managed or unmanaged [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/):
+
+- `Managed`: a managed NGINX ingress controller is deployed using the [application routing add-on for AKS](https://learn.microsoft.com/en-us/azure/aks/app-routing). The deployment script configures the managed NGINX ingress controller to use a private IP address as a frontend IP configuration of the `kubernetes-internal` internal load balancer. For more information, see [Configure NGINX ingress controller to support Azure private DNS zone with application routing add-on](https://learn.microsoft.com/en-us/azure/aks/create-nginx-ingress-private-controller).
+- `Unmanaged`: an unmanaged NGINX ingress controller is deployed via Helm. The deployment script configures the unmanaged NGINX ingress controller to use a private IP address as a frontend IP configuration of the `kubernetes-internal` internal load balancer. For more information, see [Create an ingress controller using an internal IP address](https://learn.microsoft.com/en-us/azure/aks/ingress-basic?tabs=azure-cli#create-an-ingress-controller-using-an-internal-ip-address).
 
 To enhance security, HTTPS is configured as the forwarding protocol on Azure Front Door when connecting to the AKS-hosted workload configured as a origin. This practice ensures that end-to-end TLS encryption is enforced for the entire request process, from the client to the origin.
 
@@ -59,7 +62,7 @@ The following diagram shows the architecture and network topology deployed by th
 
 ![AKS Architecture](images/architecture.png)
 
-A [Deployment Script](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep) is used to create the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/), configured to use a private IP address as frontend IP configuration of the `kubernetes-internal` internal load balancer, via Helm and a sample [httpbin](https://httpbin.org/) web application via YAML manifests. The script defines a `SecretProviderClass` to read the TLS certificate from the source Azure Key Vault and creates a Kubernetes `secret`. The `deployment` and `ingress` objects are configured to use the certificate contained in the Kubernetes secret.
+A [Deployment Script](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep) is used to deploy the sample application and optionally install the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/), configured to use a private IP address as frontend IP configuration of the `kubernetes-internal` internal load balancer, via Helm and a sample [httpbin](https://httpbin.org/) web application via YAML manifests. The script defines a `SecretProviderClass` to read the TLS certificate from the source Azure Key Vault and creates a Kubernetes `secret`. The `deployment` and `ingress` objects are configured to use the certificate contained in the Kubernetes secret.
 
 The [Origin](https://learn.microsoft.com/en-us/azure/frontdoor/origin?pivots=front-door-standard-premium) child resource of the [Azure Front Door Premium](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) global load balancer is configured to call the sample application using the HTTP forwarding protocol via the [Azure Private Link Service](https://learn.microsoft.com/en-us/azure/private-link/private-link-service-overview), the AKS the `kubernetes-internal` internal load balancer, and the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/).  
 
@@ -156,15 +159,6 @@ The Bicep modules deploy or use the following Azure resources:
   - [Prometheus](https://prometheus.io/)
 
 > **NOTE**  
-> AKS nodes can be referenced in the load balancer backend pools by either their IP configuration (Azure Virtual Machine Scale Sets based membership) or by their IP address only. Utilizing the IP address based backend pool membership provides higher efficiencies when updating services and provisioning load balancers, especially at high node counts. Provisioning new clusters with IP based backend pools and converting existing clusters is now supported. When combined with NAT Gateway or user-defined routing egress types, provisioning of new nodes and services are more performant. Two different pool [membership types](https://learn.microsoft.com/en-us/azure/aks/load-balancer-standard#change-the-inbound-pool-type) are available:
->
->- `nodeIPConfiguration`: legacy Virtual Machine Scale Sets IP configuration based pool membership type
->- `nodeIP`: IP-based membership type
->
-> Azure Private Link Service does not support Azure Load balancers configured to use with backend addresses set by (virtualNetwork, ipAddress) or (subnet, ipAddress). Hence, `nodeIP` backend pool type is not currently supported if you want to create Azure Private Link Service based on an AKS load balancer. For this reason, this project adopts the `nodeIPConfiguration` membership type for the backend pools.
-
-
-> **NOTE**  
 > At the end of the deployment, the `deploy.sh` performs additional steps to approve the Azure Private Link Service connection from Azure Front Door. For more information, see [Secure your Origin with Private Link in Azure Front Door Premium](https://learn.microsoft.com/en-us/azure/frontdoor/private-link). If you don't use the `deploy.sh` script to deploy the Bicep modules, you must approve the private endpoint connection before traffic can pass to the origin privately. You can approve private endpoint connections by using the Azure portal, Azure CLI, or Azure PowerShell. For more information, see [Manage a Private Endpoint connection](https://learn.microsoft.com/en-us/azure/private-link/manage-private-endpoint).
 
 > **NOTE**  
@@ -192,7 +186,7 @@ The deployment time steps are as follows:
    - The name and resource group of the existing Azure Key Vault that holds the TLS certificate for the workload hostname and Front Door custom domain.
    - The name of the certificate in the Key Vault.
    - The name and resource group of the DNS zone used for resolving the Front Door custom domain.
-3. The [Deployment Script](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep) creates the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/) and a sample [httpbin](https://httpbin.org/) web application using Helm and YAML manifests. The script defines a `SecretProviderClass` that retrieves the TLS certificate from the specified Azure Key Vault using the user-defined managed identity of the [Azure Key Vault provider for Secrets Store CSI Driver](https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver), and creates a Kubernetes `secret`. The `deployment` and `ingress` objects are configured to use the certificate stored in the Kubernetes secret.
+3. The [Deployment Script](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep) deploys a sample [httpbin](https://httpbin.org/) web application using Helm and YAML manifests and optionally creates the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/). The script defines a `SecretProviderClass` that retrieves the TLS certificate from the specified Azure Key Vault using the user-defined managed identity of the [Azure Key Vault provider for Secrets Store CSI Driver](https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-driver), and creates a Kubernetes `secret`. The `deployment` and `ingress` objects are configured to use the certificate stored in the Kubernetes secret.
 4. A Front Door [secret](https://learn.microsoft.com/en-us/azure/templates/microsoft.cdn/profiles/secrets?pivots=deployment-language-bicep) resource is used to manage and store the TLS certificate from the Azure Key Vault. This certificate is used by the [custom domain](https://learn.microsoft.com/en-us/azure/templates/microsoft.cdn/profiles/customdomains?pivots=deployment-language-bicep) associated with the Azure Front Door endpoint.
 
 ### Runtime
@@ -204,9 +198,9 @@ During runtime, the message flow for a request initiated by an external client a
 3. Azure Front Door forwards the incoming request to the [Azure Private Endpoint](https://docs.microsoft.com/en-us/azure/private-link/private-endpoint-overview) connected to the [Azure Private Link Service](https://learn.microsoft.com/en-us/azure/private-link/private-link-service-overview) used to expose the AKS-hosted workload.
 4. The request is sent to the Azure Private Link Service.
 5. The request is forwarded to the `kubernetes-internal` AKS internal load balancer.
-6. The request is sent to one of the agent nodes hosting a pod of the NGINX Ingress Controller.
-7. The request is handled by one of the NGINX Ingress Controller replicas
-8. The NGINX Ingress Controller forwards the request to one of the workload pods.
+6. The request is sent to one of the agent nodes hosting a pod of the managed or unmanaged NGINX Ingress Controller.
+7. The request is handled by one of the managed or unmanaged NGINX Ingress Controller replicas
+8. The managed or unmanaged NGINX Ingress Controller forwards the request to one of the workload pods.
 
 ## End-to-End TLS in Azure Front Door
 
@@ -677,6 +671,9 @@ param frontDoorName string
 ])
 param frontDoorSkuName string = 'Premium_AzureFrontDoor'
 
+@description('Specifies the name of the Front Door user-defined managed identity.')
+param managedIdentityName string
+
 @description('Specifies the send and receive timeout on forwarding request to the origin. When timeout is reached, the request fails and returns.')
 param originResponseTimeoutSeconds int = 30
 
@@ -911,12 +908,22 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   }
 }
 
+resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-07-31-preview' existing = {
+  name: managedIdentityName
+}
+
 resource frontDoor 'Microsoft.Cdn/profiles@2022-11-01-preview' = {
   name: frontDoorName
   location: 'Global'
   tags: tags
   sku: {
     name: frontDoorSkuName
+  }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${managedIdentity.id}': {}
+    }
   }
   properties: {
     originResponseTimeoutSeconds: originResponseTimeoutSeconds
@@ -1102,15 +1109,16 @@ output customDomainValidationState string = customDomain.properties.domainValida
 
 The Bicep module creates the following resources:
 
-1. Azure Front Door origin group with the specified name (`originGroupName`). It includes load balancing settings and health probe settings.
-2. Azure Front Door origin with the specified name (`originName`). It includes the origin's host name, HTTP and HTTPS ports, origin host header, priority, weight, enabled state, and any shared private link resource.
-3. Azure Front Door endpoint with the specified name (`endpointName`). It includes the auto-generated domain name label scope and enabled state.
-4. Azure Front Door route with the specified name (`routeName`). It includes the custom domains associated with the endpoint, origin group, origin path, rule sets, supported protocols, route patterns to match, forwarding protocol, link to default domain, and HTTPS redirect settings.
-5. Key Vault secret with the custom domain certificate specified (`keyVaultCertificateName`) and the latest version of the certificate.
-6. Azure Front Door custom domain with the specified name (`customDomainName`). It includes the custom domain host name, TLS settings with the customer certificate, and the Key Vault secret ID.
-7. Azure Front Door WAF policy with the specified name (`wafPolicyName`). It includes the WAF policy settings, managed rule sets, and custom rules. In particular, one of the custom rules blocks incoming requests when they contain the word `blockme` in the query string.
-8. Azure Front Door security policy with the specified name (`securityPolicyName`). It includes the security policy parameters, WAF policy association with the endpoint and custom domain, and patterns to match.
-9. Diagnostic settings for Azure Front Door with the specified name (`diagnosticSettingsName`). It includes the workspace ID, enabled logs (FrontDoorAccessLog, FrontDoorHealthProbeLog, and FrontDoorWebApplicationFirewallLog), and enabled metrics (AllMetrics).
+1. Azure Front Door profile with a user-assigned managed identity. The identity has a `Key Vault Administrator` role assignment to let it read the TLS certificate as a secret from the Key Vault resource.
+2. Azure Front Door origin group with the specified name (`originGroupName`). It includes load balancing settings and health probe settings.
+3. Azure Front Door origin with the specified name (`originName`). It includes the origin's host name, HTTP and HTTPS ports, origin host header, priority, weight, enabled state, and any shared private link resource.
+4. Azure Front Door endpoint with the specified name (`endpointName`). It includes the auto-generated domain name label scope and enabled state.
+5. Azure Front Door route with the specified name (`routeName`). It includes the custom domains associated with the endpoint, origin group, origin path, rule sets, supported protocols, route patterns to match, forwarding protocol, link to default domain, and HTTPS redirect settings.
+6. Key Vault secret with the custom domain certificate specified (`keyVaultCertificateName`) and the latest version of the certificate.
+7. Azure Front Door custom domain with the specified name (`customDomainName`). It includes the custom domain host name, TLS settings with the customer certificate, and the Key Vault secret ID.
+8. Azure Front Door WAF policy with the specified name (`wafPolicyName`). It includes the WAF policy settings, managed rule sets, and custom rules. In particular, one of the custom rules blocks incoming requests when they contain the word `blockme` in the query string.
+9. Azure Front Door security policy with the specified name (`securityPolicyName`). It includes the security policy parameters, WAF policy association with the endpoint and custom domain, and patterns to match.
+10. Diagnostic settings for Azure Front Door with the specified name (`diagnosticSettingsName`). It includes the workspace ID, enabled logs (FrontDoorAccessLog, FrontDoorHealthProbeLog, and FrontDoorWebApplicationFirewallLog), and enabled metrics (AllMetrics).
 
 The module also defines several input parameters to customize the configuration, such as the Front Door name, SKU, origin group and origin names, origin details (hostname, ports, host header, etc.), custom domain name, routing settings, WAF policy details, security policy name, diagnostic settings, etc.
 
@@ -1118,11 +1126,13 @@ Finally, the module provides several output variables, including the Front Door 
 
 ## Deployment Script
 
-The sample makes use of a [Deployment Script](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep) to run the `install-front-door-end-to-end-tls.sh` Bash script which installs the [httpbin](https://httpbin.org/) web application via YAML templates and the following packages to the AKS cluster via [Helm](https://helm.sh/). For more information on deployment scripts, see [Use deployment scripts in Bicep](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep)
+The sample makes use of a [Deployment Script](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep) to run the `install-front-door-end-to-end-tls.sh` Bash script which installs the [httpbin](https://httpbin.org/) web application via YAML templates to the newly created AKS cluster. The script also allows to optionally install the following packages via [Helm](https://helm.sh/):
 
 - [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/)
 - [Cert-Manager](https://cert-manager.io/docs/)
 - [Prometheus](https://prometheus.io/)
+
+For more information on deployment scripts, see [Use deployment scripts in Bicep](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/deployment-script-bicep)
 
 ```bash
 # Install kubectl
@@ -1157,34 +1167,69 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo update
 
 # Install Prometheus
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  --create-namespace \
-  --namespace prometheus \
-  --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
-  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+if [[ "$installPrometheusAndGrafana" == "true" ]]; then
+  echo "Installing Prometheus and Grafana..."
+  helm install prometheus prometheus-community/kube-prometheus-stack \
+    --create-namespace \
+    --namespace prometheus \
+    --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
+    --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+fi
 
 # Install NGINX ingress controller using the internal load balancer
-helm install nginx-ingress ingress-nginx/ingress-nginx \
-  --create-namespace \
-  --namespace ingress-basic \
-  --set controller.replicaCount=3 \
-  --set controller.nodeSelector."kubernetes\.io/os"=linux \
-  --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux \
-  --set controller.metrics.enabled=true \
-  --set controller.metrics.serviceMonitor.enabled=true \
-  --set controller.metrics.serviceMonitor.additionalLabels.release="prometheus" \
-  --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz \
-  --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-internal"=true
+if [[ "$nginxIngressControllerType" == "Unmanaged" || "$installNginxIngressController" == "true" ]]; then
+  if [[ "$nginxIngressControllerType" == "Unmanaged" ]]; then
+    echo "Installing unmanaged NGINX ingress controller on the internal load balancer..."
+    helm install nginx-ingress ingress-nginx/ingress-nginx \
+      --create-namespace \
+      --namespace ingress-basic \
+      --set controller.replicaCount=3 \
+      --set controller.nodeSelector."kubernetes\.io/os"=linux \
+      --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux \
+      --set controller.metrics.enabled=true \
+      --set controller.metrics.serviceMonitor.enabled=true \
+      --set controller.metrics.serviceMonitor.additionalLabels.release="prometheus" \
+      --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz \
+      --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-internal"=true
+    else
+      echo "Installing unmanaged NGINX ingress controller on the public load balancer..."
+      helm install nginx-ingress ingress-nginx/ingress-nginx \
+      --create-namespace \
+      --namespace ingress-basic \
+      --set controller.replicaCount=3 \
+      --set controller.nodeSelector."kubernetes\.io/os"=linux \
+      --set defaultBackend.nodeSelector."kubernetes\.io/os"=linux \
+      --set controller.metrics.enabled=true \
+      --set controller.metrics.serviceMonitor.enabled=true \
+      --set controller.metrics.serviceMonitor.additionalLabels.release="prometheus" \
+      --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz
+    fi
+fi
+
+# Create values.yaml file for cert-manager
+echo "Creating values.yaml file for cert-manager..."
+cat <<EOF >values.yaml
+podLabels:
+  azure.workload.identity/use: "true"
+serviceAccount:
+  labels:
+    azure.workload.identity/use: "true"
+EOF
 
 # Install certificate manager
-helm install cert-manager jetstack/cert-manager \
-  --create-namespace \
-  --namespace cert-manager \
-  --set installCRDs=true \
-  --set nodeSelector."kubernetes\.io/os"=linux
+if [[ "$installCertManager" == "true" ]]; then
+  echo "Installing cert-manager..."
+  helm install cert-manager jetstack/cert-manager \
+    --create-namespace \
+    --namespace cert-manager \
+    --set crds.enabled=true \
+    --set nodeSelector."kubernetes\.io/os"=linux \
+    --values values.yaml
 
-# Create cluster issuer
-cat <<EOF | kubectl apply -f -
+  # Create this cluster issuer only when the unmanaged NGINX ingress controller is installed and configured to use the AKS public load balancer
+  if [[ -n "$email" && ("$nginxIngressControllerType" == "Managed" || "$installNginxIngressController" == "true") ]]; then
+    echo "Creating the letsencrypt-nginx cluster issuer for the unmanaged NGINX ingress controller..."
+    cat <<EOF | kubectl apply -f -
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
@@ -1204,8 +1249,79 @@ spec:
               nodeSelector:
                 "kubernetes.io/os": linux
 EOF
+  fi
+
+  # Create this cluster issuer only when the managed NGINX ingress controller is installed and configured to use the AKS public load balancer
+  if [[ -n "$email" && "$webAppRoutingEnabled" == "true" ]]; then
+    echo "Creating the letsencrypt-webapprouting cluster issuer for the managed NGINX ingress controller..."
+    cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-webapprouting
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: $email
+    privateKeySecretRef:
+      name: letsencrypt
+    solvers:
+    - http01:
+        ingress:
+          class: webapprouting.kubernetes.azure.com
+          podTemplate:
+            spec:
+              nodeSelector:
+                "kubernetes.io/os": linux
+EOF
+  fi
+
+  # Create cluster issuer
+  if [[ -n "$email" && -n "$dnsZoneResourceGroupName" && -n "$subscriptionId" && -n "$dnsZoneName" && -n "$certManagerClientId" ]]; then
+    echo "Creating the letsencrypt-dns cluster issuer..."
+    cat <<EOF | kubectl apply -f -
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-dns
+  namespace: kube-system
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: $email
+    privateKeySecretRef:
+      name: letsencrypt-dns
+    solvers:
+    - dns01:
+        azureDNS:
+          resourceGroupName: $dnsZoneResourceGroupName
+          subscriptionID: $subscriptionId
+          hostedZoneName: $dnsZoneName
+          environment: AzurePublicCloud
+          managedIdentity:
+            clientID: $certManagerClientId
+EOF
+  fi
+fi
+
+# Configure the managed NGINX ingress controller to use an internal Azure load balancer
+if [[ "$nginxIngressControllerType" == "Managed" ]]; then
+  echo "Creating a managed NGINX ingress controller configured to use an internal Azure load balancer..."
+  cat <<EOF | kubectl apply -f -
+apiVersion: approuting.kubernetes.azure.com/v1alpha1
+kind: NginxIngressController
+metadata:
+  name: nginx-internal
+spec:
+  controllerNamePrefix: nginx-internal
+  ingressClassName: nginx-internal
+  loadBalancerAnnotations: 
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+EOF
+fi
 
 # Create a namespace for the application
+echo "Creating the [$namespace] namespace..."
 kubectl create namespace $namespace
 
 # Create the Secret Provider Class object
@@ -1228,7 +1344,7 @@ spec:
   parameters:
     usePodIdentity: "false"
     useVMManagedIdentity: "true"
-    userAssignedIdentityID: $clientId
+    userAssignedIdentityID: $csiDriverClientId
     keyvaultName: $keyVaultName
     objects: |
       array:
@@ -1314,8 +1430,15 @@ spec:
     app: httpbin
 EOF
 
+# Determine the ingressClassName
+if [[ "$nginxIngressControllerType" == "Managed" ]]; then
+  ingressClassName="nginx-internal"
+else
+  ingressClassName="nginx"
+fi
+
 # Create an ingress resource for the application
-echo "Creating an ingress in the [$namespace] namespace..."
+echo "Creating an ingress in the [$namespace] namespace configured to use the [$ingressClassName] ingress class..."
 cat <<EOF | kubectl apply -n $namespace -f -
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -1326,8 +1449,9 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "360"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "360"
     nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: "360"
+    external-dns.alpha.kubernetes.io/ingress-hostname-source: "annotation-only" # This entry tell ExternalDNS to only use the hostname defined in the annotation, hence not to create any DNS records for this ingress
 spec:
-  ingressClassName: nginx
+  ingressClassName: $ingressClassName
   tls:
   - hosts:
     - $hostname
@@ -1352,7 +1476,7 @@ echo '{}' |
   jq --arg x 'ingress-basic' '.nginxIngressController=$x' >$AZ_SCRIPTS_OUTPUT_PATH
 ```
 
-As you can note, when deploying the [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/) via Helm, the [service.beta.kubernetes.io/azure-load-balancer-internal](https://learn.microsoft.com/en-us/azure/aks/internal-lb#create-an-internal-load-balancer) to create the `kubernetes-internal` internal load balancer in the node resource group of the AKS cluster and expose the ingress controller service via a private IP address.
+As you can note, when deploying and using the unmanaged [NGINX Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/intro/overview/) to expose the web application, the [service.beta.kubernetes.io/azure-load-balancer-internal](https://learn.microsoft.com/en-us/azure/aks/internal-lb#create-an-internal-load-balancer) to create the `kubernetes-internal` internal load balancer in the node resource group of the AKS cluster and expose the ingress controller service via a private IP address.
 
 The deployment script uses a `SecretProviderClass` to retrieve the TLS certificate from Azure Key Vault and generate the Kubernetes secret for the `ingress` object. The TLS certificate's common name must match the `ingress` hostname and the Azure Front Door custom domain. The Secrets Store CSI Driver for Key Vault only creates the Kubernetes secret that contains the TLS certificate when the `deployment` utilizing the `SecretProviderClass` in a volume definition is created. For more information, see [Set up Secrets Store CSI Driver to enable NGINX Ingress Controller with TLS](https://learn.microsoft.com/en-us/azure/aks/csi-secrets-store-nginx-tls#deploy-a-secretproviderclass).
 
@@ -1376,7 +1500,10 @@ For every workload that you expose via [Azure Private Link Service (PLS)](https:
 
 If the deployment succeeds, and the private endpoint connection from the [Azure Front Door Premium](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview) instance to the [Azure Private Link Service (PLS)](https://learn.microsoft.com/en-us/azure/private-link/private-link-service-overview) is approved, you should be able to access the AKS-hosted [httpbin](https://httpbin.org/) web application as follows:
 
-- Navigate to the overview page of your Front Door Premium in the Azure Portal and copy the URL from the Endpoint hostname.
+- Navigate to the overview page of your Front Door Premium in the Azure Portal and copy the URL from the Endpoint hostname, as shown in the following picture
+
+![Azure Front Door Premium in the Azure Portal](images/azure-portal.png)
+
 - Paste and open the URL in your favorite internet browser. You should see the user interface of the [httpbin](https://httpbin.org/) application:
 
 ![HTTPBIN application](images/httpbin.png)

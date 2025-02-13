@@ -1,18 +1,18 @@
 using './main.bicep'
 
 param aksClusterNetworkMode = 'transparent'
-param aksClusterNetworkDataplane = 'azure'
+param aksClusterNetworkDataplane = 'cilium'
 param aksClusterNetworkPlugin = 'azure'
 param aksClusterNetworkPluginMode = 'overlay'
-param aksClusterNetworkPolicy = 'azure'
+param aksClusterNetworkPolicy = 'cilium'
 param aksClusterWebAppRoutingEnabled = true
-param aksClusterMonitoringEnabled = true
+param aksClusterAcnsEnabled = true
 param aksClusterSkuTier = 'Standard'
 param aksClusterPodCidr = '192.168.0.0/16'
 param aksClusterServiceCidr = '172.16.0.0/16'
 param aksClusterDnsServiceIP = '172.16.0.10'
 param aksClusterOutboundType = 'userAssignedNATGateway'
-param aksClusterKubernetesVersion = '1.24.0'
+param aksClusterKubernetesVersion = '1.31.5'
 param aksClusterAdminUsername = 'azadmin'
 param aksClusterSshPublicKey = '<your-ssh-public-key>'
 param loadBalancerBackendPoolType = 'nodeIPConfiguration'
@@ -83,14 +83,19 @@ param imageCleanerIntervalHours = 24
 param nodeRestrictionEnabled = true
 param workloadIdentityEnabled = true
 param oidcIssuerProfileEnabled = true
-param subdomain = 'store'
+param subdomain = 'httpbin'
 param dnsZoneName = '<your-public-dns-zone-name>'
 param dnsZoneResourceGroupName = '<your-public-dns-zone-resource-group-name>'
-param namespace = 'httpbin-tls'
+param namespace = 'httpbin'
 param actionGroupEmailAddress = '<your-email>'
 param keyVaultName = '<your-key-vault-name>'
 param keyVaultResourceGroupName = '<your-key-vault-resource-group-name>'
-param keyVaultCertificateName = 'store-test-com'
+param keyVaultCertificateName = 'httpbin'
+param keyVaultCertificateVersion = ''
 param secretProviderClassName = 'azure-tls'
 param secretName = 'ingress-tls-csi'
+param nginxIngressControllerType = 'Managed'
+param installPrometheusAndGrafana = true
+param installCertManager = true
+param installNginxIngressController = true
 
